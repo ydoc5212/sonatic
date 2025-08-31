@@ -1,0 +1,10 @@
+Coffee Shop Purchase
+Date: 2024-01-15
+Time: 8:30 AM
+
+Americano - Large          $4.50
+Tax                        $0.38
+Total                      $4.88
+
+Payment: Credit Card
+Thank you for your visit!

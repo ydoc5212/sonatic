@@ -1,0 +1,9 @@
+Gas Station Express
+2024-02-08 18:45
+
+Fuel - Regular            $35.67
+Subtotal                  $35.67
+Total                     $35.67
+
+Payment Method: Cash
+Have a safe trip!

@@ -1,0 +1,10 @@
+{
+  "merchant": "Target Store #1234",
+  "date": "2024-03-22",
+  "amount": "14.03",
+  "payment_method": "Debit Card",
+  "source_file": "receipt2.txt",
+  "file_hash": "ce3ef0b133646467847bad58e9d599b9",
+  "processed_timestamp": "2025-08-30T21:31:57.871612",
+  "category": "Laundry Detergent"
+}

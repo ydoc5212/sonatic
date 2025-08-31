@@ -1,0 +1,25 @@
+TechCorp Solutions
+456 Innovation Drive
+San Francisco, CA 94105
+
+INVOICE
+
+Invoice Number: INV-2024-007829
+Invoice Date: March 20, 2024
+Due Date: April 19, 2024
+
+Bill To:
+ABC Manufacturing
+789 Industrial Blvd
+Detroit, MI 48201
+
+Description: IT Consulting Services - March 2024
+- Network security audit: 40 hours @ $150/hr
+- System optimization: 20 hours @ $120/hr
+- Documentation updates: 10 hours @ $100/hr
+
+Subtotal: $9,400.00
+Tax (8.5%): $799.00
+Total Amount Due: $10,199.00
+
+Payment Terms: Net 30 days

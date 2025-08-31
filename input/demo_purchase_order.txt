@@ -1,0 +1,19 @@
+ACME CORPORATION
+PURCHASE ORDER
+
+PO Number: PO-2024-001234
+Order Date: March 15, 2024
+Delivery Date: March 30, 2024
+
+Vendor Information:
+Office Supply Co.
+123 Business Ave
+Commerce City, CA 90210
+
+Item Description: Premium Office Chairs (Set of 5)
+Quantity: 5
+Unit Price: $299.99
+Total Amount: $1,499.95
+
+Approved By: John Smith
+Department: Operations

@@ -1,0 +1,10 @@
+{
+  "merchant": "Coffee Shop",
+  "date": "2024-01-15",
+  "amount": 4.88,
+  "payment_method": "Credit Card",
+  "source_file": "receipt1.txt",
+  "file_hash": "fc12b2171e51cbf9e9d19041ecb6ab1d",
+  "processed_timestamp": "2025-08-30T21:31:57.206790",
+  "category": "Coffee"
+}

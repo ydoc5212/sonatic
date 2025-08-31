@@ -1,0 +1,8 @@
+BANK OF AMERICA
+Transaction Record
+
+Date: 2024-03-15
+Description: Amazon Purchase - Online Shopping
+Amount: -$127.89
+Transaction ID: TXN789456123
+Account: ****5678

@@ -1,0 +1,10 @@
+Target Store #1234
+2024-03-22 14:15
+
+Laundry Detergent         $12.99
+Subtotal                  $12.99
+Tax                       $1.04
+Total                     $14.03
+
+Paid with: Debit Card
+Transaction Complete

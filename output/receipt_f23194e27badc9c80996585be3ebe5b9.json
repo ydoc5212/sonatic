@@ -1,0 +1,10 @@
+{
+  "merchant": "Gas Station Express",
+  "date": "2024-02-08",
+  "amount": 35.67,
+  "payment_method": "Cash",
+  "source_file": "receipt3.txt",
+  "file_hash": "f23194e27badc9c80996585be3ebe5b9",
+  "processed_timestamp": "2025-08-30T21:31:58.507343",
+  "category": "Fuel"
+}
