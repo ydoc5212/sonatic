@@ -5,6 +5,7 @@ import os
 import json
 import csv
 import re
+import string
 from datetime import datetime
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -27,8 +28,11 @@ except ImportError:
 # Utility functions for primary key generation
 def generate_file_hash(file_path: str, length: int = 32) -> str:
     """Generate hash of file content for unique identification"""
-    with open(file_path, 'rb') as f:
-        return hashlib.md5(f.read()).hexdigest()[:length]
+    try:
+        with open(file_path, 'rb') as f:
+            return hashlib.md5(f.read()).hexdigest()[:length]
+    except Exception as e:
+        raise ValueError(f"Cannot generate file hash for {file_path}: {str(e)}")
 
 
 class DocumentValidator:
@@ -79,15 +83,25 @@ class DocumentValidator:
         if not isinstance(normalized_value, str):
             return False, "Date must be text format"
         
-        # Simple check - contains date-like patterns
+        value = value.strip()
+        if not value:
+            return False, "Date cannot be empty"
+        
+        # More comprehensive date patterns
         date_patterns = [
-            r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',  # MM/DD/YYYY or MM-DD-YYYY
-            r'\d{2,4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY/MM/DD or YYYY-MM-DD
-            r'[A-Za-z]+ \d{1,2}, \d{4}',      # January 15, 2024
+            r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',        # MM/DD/YYYY or MM-DD-YYYY
+            r'\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b',        # YYYY/MM/DD or YYYY-MM-DD  
+            r'\b[A-Za-z]+ \d{1,2},? \d{4}\b',            # January 15, 2024 or January 15 2024
+            r'\b\d{1,2} [A-Za-z]+ \d{4}\b',              # 15 January 2024
+            r'\b\d{4}-\d{2}-\d{2}\b',                     # ISO format 2024-01-15
+            r'\b\d{2}\.\d{2}\.\d{2,4}\b',                # European format 15.01.2024
         ]
         
         for pattern in date_patterns:
             if re.search(pattern, normalized_value):
+                # Additional validation - reject obvious non-dates
+                if re.search(r'\d{5,}', normalized_value):  # Too many consecutive digits
+                    continue
                 return True, "Valid date format"
         
         return False, f"Invalid date format: {normalized_value}"
@@ -214,7 +228,25 @@ class DocumentAction(ABC):
     def generate_primary_key(self, data: Dict[str, Any]) -> Optional[str]:
         """Generate business entity key for data quality validation (when available)."""
         if self.primary_key_field and self.primary_key_field in data:
-            return str(data[self.primary_key_field])
+            key_value = data[self.primary_key_field]
+            if key_value is None:
+                return None
+            
+            # Convert to string and clean
+            key_str = str(key_value).strip()
+            if not key_str:
+                return None
+            
+            # Sanitize for filename safety (remove/replace problematic characters)
+            safe_chars = string.ascii_letters + string.digits + '-_.'
+            sanitized = ''.join(c if c in safe_chars else '_' for c in key_str)
+            
+            # Limit length to prevent filesystem issues
+            max_length = 100
+            if len(sanitized) > max_length:
+                sanitized = sanitized[:max_length].rstrip('_')
+            
+            return sanitized if sanitized else None
         return None
     
     @abstractmethod
@@ -432,11 +464,11 @@ class PurchaseOrderJSONAction(DocumentAction):
         }
         
         try:
-            with open(filename, 'w') as f:
+            with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(json_output, f, indent=2)
             return True, "json_created"
         except Exception as e:
-            return False, f"Failed to write JSON: {str(e)}"
+            return False, f"Failed to write JSON ({filename}): {str(e)}"
 
 
 class ReceiptJSONAction(DocumentAction):
@@ -487,11 +519,11 @@ class ReceiptJSONAction(DocumentAction):
             json_output["category"] = data["Category"]
         
         try:
-            with open(filename, 'w') as f:
+            with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(json_output, f, indent=2)
             return True, "json_created"
         except Exception as e:
-            return False, f"Failed to write JSON: {str(e)}"
+            return False, f"Failed to write JSON ({filename}): {str(e)}"
 
 
 class BankStatementCSVAction(DocumentAction):
@@ -591,6 +623,9 @@ class BankStatementCSVAction(DocumentAction):
 
 def validate_json_response(response_text: str, expected_fields: list[str]) -> tuple[bool, Dict[str, Any], str]:
     """Validate JSON response and check for expected fields."""
+    if not response_text or not isinstance(response_text, str):
+        return False, {}, "Empty or invalid response"
+    
     # Clean markdown formatting from response
     cleaned_text = response_text.strip()
     if cleaned_text.startswith('```json'):
@@ -601,6 +636,9 @@ def validate_json_response(response_text: str, expected_fields: list[str]) -> tu
         cleaned_text = cleaned_text[:-3]  # Remove ```
     cleaned_text = cleaned_text.strip()
     
+    if not cleaned_text:
+        return False, {}, "Response is empty after cleaning"
+    
     try:
         data = json.loads(cleaned_text)
         if not isinstance(data, dict):
@@ -608,16 +646,25 @@ def validate_json_response(response_text: str, expected_fields: list[str]) -> tu
         
         # Check all expected fields are present
         missing_fields = []
+        empty_fields = []
+        
         for field in expected_fields:
             if field not in data:
                 missing_fields.append(field)
+            elif data[field] is None or (isinstance(data[field], str) and not data[field].strip()):
+                empty_fields.append(field)
         
         if missing_fields:
             return False, {}, f"Missing required fields: {', '.join(missing_fields)}"
         
+        if empty_fields:
+            return False, {}, f"Empty required fields: {', '.join(empty_fields)}"
+        
         return True, data, "Success"
     except json.JSONDecodeError as e:
         return False, {}, f"Invalid JSON format: {str(e)}"
+    except UnicodeDecodeError as e:
+        return False, {}, f"Unicode decode error: {str(e)}"
 
 
 class GeminiClient:
@@ -793,9 +840,12 @@ def read_file(file_path: str) -> str:
     # TODO: Support additional file types (.pdf, .docx, .jpg, .png, etc.)
     file_ext = Path(file_path).suffix.lower()
     
-    if file_ext == '.txt':
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
+    if file_ext == '.txt' or not file_ext:  # Support .txt files and extensionless files
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            raise ValueError(f"Cannot read file {file_path}: {str(e)}")
     else:
         raise ValueError(f"Unsupported file type: {file_ext}")
 
