@@ -71,25 +71,7 @@ class DocumentValidator:
         self.optional_fields = optional_fields or []
         self.field_types = field_types or {}
     
-    def _normalize_currency(self, value: str) -> str:
-        """Normalize currency field - remove symbols, commas, whitespace"""
-        if not isinstance(value, str):
-            return value
-        
-        # Remove common currency symbols and whitespace
-        clean_value = value.replace('$', '').replace('€', '').replace('£', '').replace(',', '').strip()
-        return clean_value
     
-    def _validate_currency(self, normalized_value: str) -> tuple[bool, str]:
-        """Validate normalized currency field - ensure numeric"""
-        if not isinstance(normalized_value, str):
-            return False, "Currency must be text format"
-        
-        try:
-            float_val = float(normalized_value)
-            return True, "Valid currency"
-        except ValueError:
-            return False, f"Invalid currency format: {normalized_value}"
     
     def _normalize_date(self, value: str) -> str:
         """Normalize date field - basic whitespace cleanup"""
@@ -192,9 +174,7 @@ class DocumentValidator:
                 raw_value = data[field]
                 
                 # Step 2a: Normalize the field value
-                if expected_type == "currency":
-                    normalized_value = self._normalize_currency(raw_value)
-                elif expected_type == "date":
+                if expected_type == "date":
                     normalized_value = self._normalize_date(raw_value)
                 elif expected_type == "text":
                     normalized_value = self._normalize_text(raw_value)
@@ -204,9 +184,7 @@ class DocumentValidator:
                     continue  # Unknown type, skip normalization and validation
                 
                 # Step 2b: Validate the normalized value
-                if expected_type == "currency":
-                    is_valid, msg = self._validate_currency(normalized_value)
-                elif expected_type == "date":
+                if expected_type == "date":
                     is_valid, msg = self._validate_date(normalized_value)
                 elif expected_type == "text":
                     is_valid, msg = self._validate_text(normalized_value)
@@ -339,8 +317,7 @@ class APInvoiceCSVAction(DocumentAction):
             field_types={
                 "Vendor": "text",
                 "Invoice #": "alphanumeric",
-                "Date Due": "date",
-                "Total": "currency"
+                "Date Due": "date"
             }
         )
     
@@ -451,8 +428,7 @@ class PurchaseOrderJSONAction(DocumentAction):
                 "PO Number": "alphanumeric",
                 "Vendor": "text",
                 "Order Date": "date",
-                "Delivery Date": "date",
-                "Total Amount": "currency"
+                "Delivery Date": "date"
             }
         )
     
@@ -507,8 +483,7 @@ class ReceiptJSONAction(DocumentAction):
             optional_fields=["Category"],
             field_types={
                 "Merchant": "text",
-                "Date": "date", 
-                "Amount": "currency",
+                "Date": "date",
                 "Payment Method": "text",
                 "Category": "text"
             }
@@ -561,7 +536,6 @@ class BankStatementCSVAction(DocumentAction):
         self.validator = DocumentValidator(
             required_fields=["Amount", "Date", "Description"],
             field_types={
-                "Amount": "currency",
                 "Date": "date",
                 "Description": "text"
             }
