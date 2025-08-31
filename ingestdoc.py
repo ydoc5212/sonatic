@@ -23,6 +23,26 @@ try:
 except ImportError:
     pass  # dotenv is optional
 
+try:
+    import easyocr
+except ImportError:
+    easyocr = None  # Will be handled gracefully in ImageOCRReader
+
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None  # Will be handled gracefully in ExcelReader
+
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None  # Will be handled gracefully in PDFReader
+
+try:
+    import mammoth
+except ImportError:
+    mammoth = None  # Will be handled gracefully in WordDocReader
+
 
 # Utility functions for primary key generation
 def generate_file_hash(file_path: str, length: int = 32) -> str:
@@ -699,15 +719,433 @@ class ProcessorRegistry:
         return list(cls._processors.keys())
 
 
-def read_file(file_path: str) -> str:
-    # TODO: Support additional file types (.pdf, .docx, .jpg, .png, etc.)
-    file_ext = Path(file_path).suffix.lower()
+class FileReader(ABC):
+    """Abstract base class for reading different file types."""
     
-    if file_ext == '.txt':
+    @abstractmethod
+    def can_read(self, file_path: str) -> bool:
+        """Check if this reader can handle the given file type."""
+        pass
+    
+    @abstractmethod
+    def read(self, file_path: str) -> str:
+        """Read and return the text content of the file."""
+        pass
+    
+    @abstractmethod
+    def get_supported_extensions(self) -> list[str]:
+        """Return list of supported file extensions."""
+        pass
+
+
+class TextFileReader(FileReader):
+    """Reader for plain text files."""
+    
+    def can_read(self, file_path: str) -> bool:
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
-    else:
-        raise ValueError(f"Unsupported file type: {file_ext}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.txt', '.md', '.markdown']
+
+
+class ImageOCRReader(FileReader):
+    """Reader for image files using EasyOCR for text extraction."""
+    
+    def __init__(self):
+        self.reader = None
+        self._check_dependencies()
+    
+    def _check_dependencies(self):
+        """Check if EasyOCR is available and initialize it lazily."""
+        if easyocr is None:
+            raise ImportError("EasyOCR not installed. Run: pip install easyocr")
+    
+    def _get_ocr_reader(self):
+        """Lazy initialization of EasyOCR reader."""
+        if self.reader is None:
+            # Initialize with English language support
+            # EasyOCR will download models on first use (~47MB for English)
+            self.reader = easyocr.Reader(['en'])
+        return self.reader
+    
+    def can_read(self, file_path: str) -> bool:
+        if easyocr is None:
+            return False
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
+        try:
+            ocr_reader = self._get_ocr_reader()
+            
+            # Extract text from image
+            results = ocr_reader.readtext(file_path)
+            
+            # Combine all detected text into a single string
+            # Each result is [bbox, text, confidence]
+            extracted_lines = []
+            for bbox, text, confidence in results:
+                # Only include text with reasonable confidence (>0.5)
+                if confidence > 0.5:
+                    extracted_lines.append(text)
+            
+            if not extracted_lines:
+                raise ValueError("No text detected in image or confidence too low")
+            
+            # Join lines with newlines to preserve document structure
+            return '\n'.join(extracted_lines)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to extract text from image {file_path}: {str(e)}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp']
+
+
+class CSVReader(FileReader):
+    """Reader for CSV files, converts to readable text format."""
+    
+    def can_read(self, file_path: str) -> bool:
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
+        try:
+            # Read CSV and convert to readable text format
+            rows = []
+            with open(file_path, 'r', encoding='utf-8') as csvfile:
+                # Try to detect delimiter automatically
+                sample = csvfile.read(1024)
+                csvfile.seek(0)
+                sniffer = csv.Sniffer()
+                
+                try:
+                    delimiter = sniffer.sniff(sample).delimiter
+                except:
+                    delimiter = ','  # Default fallback
+                
+                reader = csv.reader(csvfile, delimiter=delimiter)
+                rows = list(reader)
+            
+            if not rows:
+                raise ValueError("CSV file is empty")
+            
+            # Convert to readable text format for LLM processing
+            text_lines = []
+            
+            # Add header if available
+            if rows:
+                header = rows[0]
+                text_lines.append("CSV Data with columns: " + ", ".join(header))
+                text_lines.append("")  # Empty line for separation
+                
+                # Add data rows with structure
+                for i, row in enumerate(rows[1:], 1):
+                    if len(row) == len(header):
+                        row_text = f"Row {i}:"
+                        for col_name, value in zip(header, row):
+                            row_text += f" {col_name}: {value},"
+                        text_lines.append(row_text.rstrip(','))
+                    else:
+                        # Handle malformed rows
+                        text_lines.append(f"Row {i}: {', '.join(row)}")
+                
+                # Limit to reasonable number of rows for LLM processing
+                if len(text_lines) > 102:  # Header + blank + 100 rows
+                    text_lines = text_lines[:102]
+                    text_lines.append(f"... ({len(rows)-1-100} more rows truncated)")
+            
+            return '\n'.join(text_lines)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to read CSV file {file_path}: {str(e)}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.csv']
+
+
+class ExcelReader(FileReader):
+    """Reader for Excel files using openpyxl, converts to readable text format."""
+    
+    def __init__(self):
+        self._check_dependencies()
+    
+    def _check_dependencies(self):
+        """Check if openpyxl is available."""
+        if openpyxl is None:
+            raise ImportError("openpyxl not installed. Run: pip install openpyxl")
+    
+    def can_read(self, file_path: str) -> bool:
+        if openpyxl is None:
+            return False
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
+        try:
+            # Load the workbook
+            workbook = openpyxl.load_workbook(file_path, data_only=True)
+            text_lines = []
+            
+            # Process all sheets
+            for sheet_idx, sheet_name in enumerate(workbook.sheetnames):
+                sheet = workbook[sheet_name]
+                
+                # Add sheet header if multiple sheets
+                if len(workbook.sheetnames) > 1:
+                    text_lines.append(f"Sheet: {sheet_name}")
+                    text_lines.append("")
+                
+                # Get all rows with data
+                rows = []
+                for row in sheet.iter_rows(values_only=True):
+                    # Skip completely empty rows
+                    if any(cell is not None for cell in row):
+                        # Convert None to empty string, everything else to string
+                        cleaned_row = [str(cell) if cell is not None else "" for cell in row]
+                        rows.append(cleaned_row)
+                
+                if not rows:
+                    text_lines.append("(Empty sheet)")
+                    text_lines.append("")
+                    continue
+                
+                # Assume first row is headers
+                if rows:
+                    headers = rows[0]
+                    text_lines.append(f"Excel Data with columns: {', '.join(headers)}")
+                    text_lines.append("")
+                    
+                    # Add data rows with structure (limit to 100 rows per sheet)
+                    data_rows = rows[1:101] if len(rows) > 1 else []
+                    
+                    for i, row in enumerate(data_rows, 1):
+                        if len(row) == len(headers):
+                            row_text = f"Row {i}:"
+                            for col_name, value in zip(headers, row):
+                                if value:  # Skip empty values
+                                    row_text += f" {col_name}: {value},"
+                            text_lines.append(row_text.rstrip(','))
+                        else:
+                            # Handle mismatched row lengths
+                            non_empty_values = [val for val in row if val]
+                            if non_empty_values:
+                                text_lines.append(f"Row {i}: {', '.join(non_empty_values)}")
+                    
+                    # Add truncation note if there are more rows
+                    if len(rows) > 101:
+                        text_lines.append(f"... ({len(rows)-101} more rows truncated)")
+                
+                text_lines.append("")  # Blank line between sheets
+            
+            return '\n'.join(text_lines).strip()
+            
+        except Exception as e:
+            raise ValueError(f"Failed to read Excel file {file_path}: {str(e)}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.xlsx', '.xlsm', '.xltx', '.xltm']
+
+
+class PDFReader(FileReader):
+    """Reader for PDF files using pdfplumber for text extraction."""
+    
+    def __init__(self):
+        self._check_dependencies()
+    
+    def _check_dependencies(self):
+        """Check if pdfplumber is available."""
+        if pdfplumber is None:
+            raise ImportError("pdfplumber not installed. Run: pip install pdfplumber")
+    
+    def can_read(self, file_path: str) -> bool:
+        if pdfplumber is None:
+            return False
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
+        try:
+            text_lines = []
+            
+            with pdfplumber.open(file_path) as pdf:
+                total_pages = len(pdf.pages)
+                
+                if total_pages == 0:
+                    raise ValueError("PDF file contains no pages")
+                
+                # Add document header
+                text_lines.append(f"PDF Document ({total_pages} pages)")
+                text_lines.append("")
+                
+                # Process pages (limit to reasonable number for LLM context)
+                max_pages = 20  # Reasonable limit for LLM processing
+                pages_to_process = min(total_pages, max_pages)
+                
+                for page_num in range(pages_to_process):
+                    page = pdf.pages[page_num]
+                    
+                    # Extract text from page
+                    page_text = page.extract_text()
+                    
+                    if page_text:
+                        # Add page header if multiple pages
+                        if total_pages > 1:
+                            text_lines.append(f"Page {page_num + 1}:")
+                            text_lines.append("")
+                        
+                        # Clean up the text
+                        cleaned_text = page_text.strip()
+                        if cleaned_text:
+                            text_lines.append(cleaned_text)
+                            text_lines.append("")  # Blank line between pages
+                    else:
+                        # Handle pages with no extractable text (might be images/scans)
+                        if total_pages > 1:
+                            text_lines.append(f"Page {page_num + 1}: (No extractable text - may contain images)")
+                            text_lines.append("")
+                
+                # Add truncation note if there are more pages
+                if total_pages > max_pages:
+                    text_lines.append(f"... ({total_pages - max_pages} more pages truncated)")
+                
+                result = '\n'.join(text_lines).strip()
+                
+                if not result or result == f"PDF Document ({total_pages} pages)":
+                    raise ValueError("No text could be extracted from PDF - document may be image-based or corrupted")
+                
+                return result
+                
+        except Exception as e:
+            raise ValueError(f"Failed to read PDF file {file_path}: {str(e)}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.pdf']
+
+
+class WordDocReader(FileReader):
+    """Reader for Word documents using mammoth for text extraction."""
+    
+    def __init__(self):
+        self._check_dependencies()
+    
+    def _check_dependencies(self):
+        """Check if mammoth is available."""
+        if mammoth is None:
+            raise ImportError("mammoth not installed. Run: pip install mammoth")
+    
+    def can_read(self, file_path: str) -> bool:
+        if mammoth is None:
+            return False
+        return Path(file_path).suffix.lower() in self.get_supported_extensions()
+    
+    def read(self, file_path: str) -> str:
+        try:
+            with open(file_path, "rb") as docx_file:
+                result = mammoth.extract_raw_text(docx_file)
+                
+                # Get the extracted text
+                text = result.value
+                
+                # Check for any warnings or issues
+                if result.messages:
+                    # Mammoth sometimes reports warnings about unrecognized styles
+                    # We'll note serious errors but continue with text extraction
+                    error_messages = [msg for msg in result.messages if msg.type == 'error']
+                    if error_messages:
+                        print(f"Warning: Some issues encountered while reading {file_path}")
+                        for msg in error_messages:
+                            print(f"  - {msg.message}")
+                
+                if not text or not text.strip():
+                    raise ValueError("No text could be extracted from Word document")
+                
+                # Clean up the text
+                cleaned_text = text.strip()
+                
+                # Add document header
+                lines = [f"Word Document Content:", ""]
+                lines.extend(cleaned_text.split('\n'))
+                
+                return '\n'.join(lines)
+                
+        except Exception as e:
+            if isinstance(e, ValueError) and "No text could be extracted" in str(e):
+                raise e
+            raise ValueError(f"Failed to read Word document {file_path}: {str(e)}")
+    
+    def get_supported_extensions(self) -> list[str]:
+        return ['.docx']
+
+
+class FileReaderRegistry:
+    """Registry for managing file readers and automatic file type detection."""
+    
+    def __init__(self):
+        self.readers: list[FileReader] = []
+        self._register_default_readers()
+    
+    def _register_default_readers(self):
+        """Register built-in file readers."""
+        self.readers.append(TextFileReader())
+        self.readers.append(CSVReader())
+        
+        # Register ExcelReader if openpyxl is available
+        try:
+            self.readers.append(ExcelReader())
+        except ImportError:
+            pass  # Skip if openpyxl not available
+        
+        # Register PDFReader if pdfplumber is available
+        try:
+            self.readers.append(PDFReader())
+        except ImportError:
+            pass  # Skip if pdfplumber not available
+        
+        # Register WordDocReader if mammoth is available
+        try:
+            self.readers.append(WordDocReader())
+        except ImportError:
+            pass  # Skip if mammoth not available
+        
+        # Register ImageOCRReader if EasyOCR is available
+        try:
+            self.readers.append(ImageOCRReader())
+        except ImportError:
+            pass  # Skip if EasyOCR not available
+    
+    def register_reader(self, reader: FileReader):
+        """Register a new file reader."""
+        self.readers.append(reader)
+    
+    def get_reader(self, file_path: str) -> Optional[FileReader]:
+        """Find the first reader that can handle this file type."""
+        for reader in self.readers:
+            if reader.can_read(file_path):
+                return reader
+        return None
+    
+    def get_supported_extensions(self) -> list[str]:
+        """Get all supported file extensions across all readers."""
+        extensions = []
+        for reader in self.readers:
+            extensions.extend(reader.get_supported_extensions())
+        return sorted(list(set(extensions)))
+
+
+# Global file reader registry instance
+_file_reader_registry = FileReaderRegistry()
+
+
+def read_file(file_path: str) -> str:
+    """Read file content using the appropriate file reader."""
+    reader = _file_reader_registry.get_reader(file_path)
+    if reader is None:
+        file_ext = Path(file_path).suffix.lower()
+        supported = _file_reader_registry.get_supported_extensions()
+        raise ValueError(f"Unsupported file type: {file_ext}. Supported: {', '.join(supported)}")
+    
+    return reader.read(file_path)
 
 
 def main():
