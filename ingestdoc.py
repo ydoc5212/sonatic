@@ -47,25 +47,36 @@ class DocumentValidator:
         self.optional_fields = optional_fields or []
         self.field_types = field_types or {}
     
-    def _validate_currency(self, value: str) -> tuple[bool, str]:
-        """Validate currency field (remove symbols, ensure numeric)"""
+    def _normalize_currency(self, value: str) -> str:
+        """Normalize currency field - remove symbols, commas, whitespace"""
         if not isinstance(value, str):
-            return False, "Currency must be text format"
+            return value
         
         # Remove common currency symbols and whitespace
         clean_value = value.replace('$', '').replace('€', '').replace('£', '').replace(',', '').strip()
+        return clean_value
+    
+    def _validate_currency(self, normalized_value: str) -> tuple[bool, str]:
+        """Validate normalized currency field - ensure numeric"""
+        if not isinstance(normalized_value, str):
+            return False, "Currency must be text format"
         
         try:
-            float_val = float(clean_value)
-            if float_val < 0:
-                return False, "Currency amount cannot be negative"
+            float_val = float(normalized_value)
             return True, "Valid currency"
         except ValueError:
-            return False, f"Invalid currency format: {value}"
+            return False, f"Invalid currency format: {normalized_value}"
     
-    def _validate_date(self, value: str) -> tuple[bool, str]:
-        """Basic date validation (ensure it looks like a date)"""
+    def _normalize_date(self, value: str) -> str:
+        """Normalize date field - basic whitespace cleanup"""
         if not isinstance(value, str):
+            return value
+        
+        return value.strip()
+    
+    def _validate_date(self, normalized_value: str) -> tuple[bool, str]:
+        """Validate normalized date field - check date patterns"""
+        if not isinstance(normalized_value, str):
             return False, "Date must be text format"
         
         # Simple check - contains date-like patterns
@@ -76,10 +87,51 @@ class DocumentValidator:
         ]
         
         for pattern in date_patterns:
-            if re.search(pattern, value):
+            if re.search(pattern, normalized_value):
                 return True, "Valid date format"
         
-        return False, f"Invalid date format: {value}"
+        return False, f"Invalid date format: {normalized_value}"
+    
+    def _normalize_text(self, value: str) -> str:
+        """Normalize text field - strip whitespace"""
+        if not isinstance(value, str):
+            return value
+        
+        return value.strip()
+    
+    def _validate_text(self, normalized_value: str) -> tuple[bool, str]:
+        """Validate normalized text field - check emptiness"""
+        if not isinstance(normalized_value, str):
+            return False, "Text must be string format"
+        
+        if not normalized_value:
+            return False, "Text cannot be empty"
+        
+        return True, "Valid text"
+    
+    def _normalize_alphanumeric(self, value: str) -> str:
+        """Normalize alphanumeric field - strip whitespace"""
+        if not isinstance(value, str):
+            return value
+        
+        return value.strip()
+    
+    def _validate_alphanumeric(self, normalized_value: str) -> tuple[bool, str]:
+        """Validate normalized alphanumeric field - check patterns and length"""
+        if not isinstance(normalized_value, str):
+            return False, "ID must be string format"
+        
+        if not normalized_value:
+            return False, "ID cannot be empty"
+        
+        # Allow letters, numbers, hyphens, underscores, spaces
+        if not re.match(r'^[A-Za-z0-9\-_\s]+$', normalized_value):
+            return False, f"ID contains invalid characters: {normalized_value}"
+        
+        if len(normalized_value) > 50:  # Reasonable max length for IDs
+            return False, "ID exceeds maximum length (50 characters)"
+        
+        return True, "Valid ID format"
     
     def validate(self, data: Dict[str, Any]) -> tuple[bool, str]:
         """
@@ -100,15 +152,32 @@ class DocumentValidator:
         if missing_fields:
             return False, f"Missing required fields: {', '.join(missing_fields)}"
         
-        # Step 2: Validate field types (if specified)
+        # Step 2: Normalize and validate field types (if specified)
         for field, expected_type in self.field_types.items():
             if field in data and data[field] is not None:
+                raw_value = data[field]
+                
+                # Step 2a: Normalize the field value
                 if expected_type == "currency":
-                    is_valid, msg = self._validate_currency(data[field])
+                    normalized_value = self._normalize_currency(raw_value)
                 elif expected_type == "date":
-                    is_valid, msg = self._validate_date(data[field])
+                    normalized_value = self._normalize_date(raw_value)
+                elif expected_type == "text":
+                    normalized_value = self._normalize_text(raw_value)
+                elif expected_type == "alphanumeric":
+                    normalized_value = self._normalize_alphanumeric(raw_value)
                 else:
-                    continue  # Unknown type, skip validation
+                    continue  # Unknown type, skip normalization and validation
+                
+                # Step 2b: Validate the normalized value
+                if expected_type == "currency":
+                    is_valid, msg = self._validate_currency(normalized_value)
+                elif expected_type == "date":
+                    is_valid, msg = self._validate_date(normalized_value)
+                elif expected_type == "text":
+                    is_valid, msg = self._validate_text(normalized_value)
+                elif expected_type == "alphanumeric":
+                    is_valid, msg = self._validate_alphanumeric(normalized_value)
                 
                 if not is_valid:
                     return False, f"Invalid {expected_type} for {field}: {msg}"
@@ -182,8 +251,10 @@ class APInvoiceCSVAction(DocumentAction):
         self.validator = DocumentValidator(
             required_fields=["Vendor", "Invoice #", "Date Due", "Total"],
             field_types={
-                "Total": "currency",
-                "Date Due": "date"
+                "Vendor": "text",
+                "Invoice #": "alphanumeric",
+                "Date Due": "date",
+                "Total": "currency"
             }
         )
     
@@ -316,7 +387,14 @@ class PurchaseOrderJSONAction(DocumentAction):
     def __init__(self):
         super().__init__(primary_key_field="PO Number")
         self.validator = DocumentValidator(
-            required_fields=["PO Number", "Vendor", "Order Date", "Delivery Date", "Total Amount"]
+            required_fields=["PO Number", "Vendor", "Order Date", "Delivery Date", "Total Amount"],
+            field_types={
+                "PO Number": "alphanumeric",
+                "Vendor": "text",
+                "Order Date": "date",
+                "Delivery Date": "date",
+                "Total Amount": "currency"
+            }
         )
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
@@ -366,7 +444,14 @@ class ReceiptJSONAction(DocumentAction):
         super().__init__(primary_key_field=None)  # No business entity validation for receipts
         self.validator = DocumentValidator(
             required_fields=["Merchant", "Date", "Amount", "Payment Method"],
-            optional_fields=["Category"]
+            optional_fields=["Category"],
+            field_types={
+                "Merchant": "text",
+                "Date": "date", 
+                "Amount": "currency",
+                "Payment Method": "text",
+                "Category": "text"
+            }
         )
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
@@ -413,7 +498,12 @@ class BankStatementCSVAction(DocumentAction):
     def __init__(self):
         super().__init__(primary_key_field=None)  # No business entity validation for bank statements
         self.validator = DocumentValidator(
-            required_fields=["Amount", "Date", "Description"]
+            required_fields=["Amount", "Date", "Description"],
+            field_types={
+                "Amount": "currency",
+                "Date": "date",
+                "Description": "text"
+            }
         )
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
