@@ -1,0 +1,25 @@
+CITY BANK STATEMENT
+Account Number: 987-654-3210
+Customer: John Smith
+
+RECENT TRANSACTIONS
+
+Date: March 15, 2024
+Description: Restaurant Charge
+Amount: $42.89
+Running Balance: $1,234.56
+
+Date: March 16, 2024  
+Description: Gas Station Purchase
+Amount: $67.23
+Running Balance: $1,167.33
+
+Date: March 18, 2024
+Description: Payroll Deposit  
+Amount: $2,100.00
+Running Balance: $3,267.33
+
+Date: March 20, 2024
+Description: Rent Payment
+Amount: $1,200.00
+Running Balance: $2,067.33

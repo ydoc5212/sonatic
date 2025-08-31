@@ -1,0 +1,19 @@
+COFFEE HOUSE CENTRAL
+123 Main Street
+New York, NY 10001
+Tel: (212) 555-0100
+
+Date: 03/15/2024
+Time: 08:45 AM
+
+Cappuccino Large    $5.75
+Croissant          $3.50
+------------------
+Subtotal:          $9.25
+Tax:               $0.81
+TOTAL:            $10.06
+
+Payment: VISA ****1234
+Auth: 854792
+
+Thank you for your visit!

@@ -1,0 +1,27 @@
+TechSupply Solutions LLC
+789 Industry Avenue
+San Francisco, CA 94102
+Phone: (415) 555-0123
+
+INVOICE
+
+Bill To:
+StartupCorp Inc.
+123 Startup Lane
+Palo Alto, CA 94301
+
+Invoice #: INV-2024-1001
+Date: February 1, 2024
+Date Due: March 3, 2024
+
+Description                    Qty    Unit Price    Amount
+Laptop Computers                3        $1,250.00  $3,750.00
+Wireless Mice                   5         $35.99     $179.95
+USB-C Cables                   10         $15.50     $155.00
+
+                               Subtotal:           $4,084.95
+                               Sales Tax (7.25%):  $296.16
+                               TOTAL:              $4,381.11
+
+Payment Terms: Net 45 days
+Thank you for choosing TechSupply!

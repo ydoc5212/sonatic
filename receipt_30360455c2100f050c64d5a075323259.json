@@ -1,0 +1,10 @@
+{
+  "merchant": "COFFEE HOUSE CENTRAL",
+  "date": "03/15/2024",
+  "amount": "10.06",
+  "payment_method": "VISA",
+  "source_file": "test_receipt.txt",
+  "file_hash": "30360455c2100f050c64d5a075323259",
+  "processed_timestamp": "2025-08-30T19:03:10.861668",
+  "category": "Food & Drink"
+}

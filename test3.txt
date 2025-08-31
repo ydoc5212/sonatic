@@ -1,0 +1,27 @@
+Global Supply Chain Ltd
+456 Commerce Street
+New York, NY 10001
+Phone: (212) 555-9876
+
+INVOICE
+
+Bill To:
+MegaCorp International
+789 Corporate Plaza
+Los Angeles, CA 90210
+
+Invoice #: INV-2024-2050
+Date: March 15, 2024
+Date Due: April 14, 2024
+
+Description                    Qty    Unit Price    Amount
+Industrial Equipment            1        $25,000.00 $25,000.00
+Installation Services           1        $5,000.00  $5,000.00
+Training Package               1        $2,500.00  $2,500.00
+
+                               Subtotal:           $32,500.00
+                               Sales Tax (8.875%): $2,884.38
+                               TOTAL:              $35,384.38
+
+Payment Terms: Net 30 days
+Reference: PO-MCI-2024-001

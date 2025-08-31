@@ -1,0 +1,21 @@
+QUICK STOP MARKET
+456 Oak Avenue
+Chicago, IL 60601
+Phone: (312) 555-9876
+
+Purchase Date: March 18, 2024
+Transaction Time: 2:30 PM
+
+Gas (12.5 gallons)    $43.75
+Snacks               $8.50
+Water Bottle         $2.25
+----------------------------
+Subtotal:           $54.50
+Tax:                $4.36
+TOTAL:             $58.86
+
+Payment Method: Debit Card ****5678
+Approval Code: 951357
+
+Thank you for shopping with us!
+Category: Transportation

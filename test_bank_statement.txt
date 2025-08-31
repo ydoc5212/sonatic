@@ -1,0 +1,30 @@
+FIRST NATIONAL BANK
+Monthly Statement
+Account: 1234567890
+
+Statement Period: March 1 - March 31, 2024
+
+Transaction Date: 03/01/2024
+Description: Direct Deposit - Salary  
+Amount: +$3,500.00
+Balance: $3,500.00
+
+Transaction Date: 03/02/2024  
+Description: ATM Withdrawal
+Amount: -$100.00
+Balance: $3,400.00
+
+Transaction Date: 03/03/2024
+Description: Grocery Store Payment
+Amount: -$89.45
+Balance: $3,310.55
+
+Transaction Date: 03/05/2024
+Description: Online Transfer
+Amount: -$500.00  
+Balance: $2,810.55
+
+Transaction Date: 03/07/2024
+Description: Interest Credit
+Amount: +$2.15
+Balance: $2,812.70

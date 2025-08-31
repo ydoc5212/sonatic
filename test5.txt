@@ -1,0 +1,27 @@
+NewTech Solutions
+222 Innovation Blvd
+Denver, CO 80202
+Phone: (303) 555-7890
+
+INVOICE
+
+Bill To:
+Future Systems Corp
+333 Tomorrow Street
+Phoenix, AZ 85001
+
+Invoice #: INV-2024-4500
+Date: May 15, 2024
+Date Due: June 14, 2024
+
+Description                    Qty    Unit Price    Amount
+Cloud Storage (1TB)            12        $99.99    $1,199.88
+Premium Support                1         $500.00   $500.00
+Data Migration                 1         $750.00   $750.00
+
+                               Subtotal:           $2,449.88
+                               Sales Tax (7.65%):  $187.42
+                               TOTAL:              $2,637.30
+
+Payment Terms: Net 30 days
+Service Period: May 2024 - May 2025
