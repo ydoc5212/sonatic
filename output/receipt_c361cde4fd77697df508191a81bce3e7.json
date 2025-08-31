@@ -1,0 +1,10 @@
+{
+  "merchant": "WHOLE FOODS MARKET",
+  "date": "2024-01-20",
+  "amount": "$44.47",
+  "payment_method": "Visa Credit Card",
+  "source_file": "test_receipt_1.txt",
+  "file_hash": "c361cde4fd77697df508191a81bce3e7",
+  "processed_timestamp": "2025-08-30T20:48:05.946639",
+  "category": "Grocery"
+}

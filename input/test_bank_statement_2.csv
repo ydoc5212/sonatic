@@ -1,0 +1,17 @@
+Date,Description,Amount,Balance
+2024-02-01,Beginning Balance,0.00,25467.89
+2024-02-02,Direct Deposit - Salary,4250.00,29717.89
+2024-02-03,Check #2001 - Mortgage Payment,-1850.00,27867.89
+2024-02-05,Debit Card - Grocery Store,-156.73,27711.16
+2024-02-07,ACH Transfer - Savings Account,-500.00,27211.16
+2024-02-08,Debit Card - Gas Station,-45.20,27165.96
+2024-02-10,Online Transfer - Investment Account,-1000.00,26165.96
+2024-02-12,Check #2002 - Utilities,-289.45,25876.51
+2024-02-14,ATM Withdrawal - Cash,-100.00,25776.51
+2024-02-15,Direct Deposit - Bonus,1500.00,27276.51
+2024-02-17,Debit Card - Restaurant,-67.89,27208.62
+2024-02-20,Check #2003 - Insurance Premium,-345.67,26862.95
+2024-02-22,ACH Debit - Phone Bill,-125.99,26736.96
+2024-02-24,Debit Card - Online Purchase,-89.99,26646.97
+2024-02-26,Bank Fee - Monthly Service Charge,-12.00,26634.97
+2024-02-28,Interest Earned,15.67,26650.64

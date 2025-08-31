@@ -1,0 +1,30 @@
+STARBUCKS COFFEE
+Store #3428
+Downtown Denver
+1601 17th Street
+Denver, CO 80202
+
+Receipt #: STB-092847519
+
+Date: January 25, 2024
+Time: 08:45 AM
+
+Barista: Michael K.
+
+ORDER:
+Grande Pike Place Roast          $2.65
+Blueberry Muffin                 $2.95
+Oat Milk (add)                   $0.70
+
+Subtotal:                        $6.30
+Tax (4.31%):                     $0.27
+TOTAL:                           $6.57
+
+Payment: Apple Pay
+Device: iPhone ending in 2847
+
+Category: Food & Beverage
+
+Thank you!
+Earn stars with the Starbucks app
+Visit starbucks.com/rewards
