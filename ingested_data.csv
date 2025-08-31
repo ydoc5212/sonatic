@@ -1,3 +1,0 @@
-filename,filepath,size_bytes,line_count,char_count,word_count
-test.txt,test.txt,94,3,94,18
-test.json,test.json,70,json,"name,version,description",3
