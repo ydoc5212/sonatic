@@ -103,7 +103,7 @@ class DocumentValidator:
         if not isinstance(normalized_value, str):
             return False, "Date must be text format"
         
-        value = value.strip()
+        value = normalized_value.strip()
         if not value:
             return False, "Date cannot be empty"
         
@@ -245,6 +245,12 @@ class DocumentAction(ABC):
         """Generate file hash key for file-level deduplication (always used)."""
         return generate_file_hash(file_path)
     
+    def ensure_output_directory(self) -> Path:
+        """Ensure output directory exists and return Path object."""
+        output_dir = Path("output")
+        output_dir.mkdir(exist_ok=True)
+        return output_dir
+    
     def generate_primary_key(self, data: Dict[str, Any]) -> Optional[str]:
         """Generate business entity key for data quality validation (when available)."""
         if self.primary_key_field and self.primary_key_field in data:
@@ -286,6 +292,34 @@ class DocumentAction(ABC):
         """Check if this should be skipped as duplicate. Override for custom logic."""
         return False  # Default: no deduplication (backward compatibility)
     
+    def _is_file_duplicate(self, file_key: str, csv_path: str) -> bool:
+        """Check if file hash already exists in CSV file"""
+        if not Path(csv_path).exists():
+            return False  # No file means no duplicates
+        
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                header = next(reader, None)  # Skip header row
+                if not header:
+                    return False  # Empty file
+                
+                # Find the File Hash column index
+                try:
+                    hash_index = header.index("File Hash")
+                except ValueError:
+                    return False  # File Hash column doesn't exist
+                
+                # Check each row for the file hash
+                for row in reader:
+                    if len(row) > hash_index and row[hash_index] == file_key:
+                        return True  # Found duplicate
+                        
+            return False  # No duplicate found
+            
+        except Exception:
+            return False  # Error reading file, assume no duplicate
+    
     @abstractmethod
     def validate_data(self, data: Dict[str, Any]) -> tuple[bool, str]:
         """Validate data meets action requirements. Returns (success, error_msg)"""
@@ -312,7 +346,8 @@ class APInvoiceCSVAction(DocumentAction):
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
         """Generate compiled CSV file (compile pattern)"""
-        return f"{doc_type}_log.csv"
+        output_dir = self.ensure_output_directory()
+        return str(output_dir / f"{doc_type}_log.csv")
     
     def check_file_duplicates(self, file_key: str, output_path: str) -> bool:
         """Check if file hash already exists in CSV (primary deduplication)"""
@@ -333,37 +368,9 @@ class APInvoiceCSVAction(DocumentAction):
         """Validate AP Invoice data has all required fields"""
         return self.validator.validate(data)
     
-    def _is_file_duplicate(self, file_key: str, csv_path: str) -> bool:
-        """Check if file hash already exists in CSV file"""
-        if not os.path.exists(csv_path):
-            return False  # No file means no duplicates
-        
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
-                header = next(reader, None)  # Skip header row
-                if not header:
-                    return False  # Empty file
-                
-                # Find the File Hash column index
-                try:
-                    hash_index = header.index("File Hash")
-                except ValueError:
-                    return False  # File Hash column doesn't exist
-                
-                # Check each row for the file hash
-                for row in reader:
-                    if len(row) > hash_index and row[hash_index] == file_key:
-                        return True  # Found duplicate
-                        
-            return False  # No duplicate found
-            
-        except Exception:
-            return False  # Error reading file, assume no duplicate
-    
     def _is_entity_duplicate(self, entity_key: str, csv_path: str) -> bool:
         """Check if business entity already exists in CSV file"""
-        if not os.path.exists(csv_path):
+        if not Path(csv_path).exists():
             return False  # No file means no duplicates
         
         try:
@@ -413,7 +420,7 @@ class APInvoiceCSVAction(DocumentAction):
         
         try:
             # Check if file exists to determine if we need headers
-            file_exists = os.path.exists(csv_path)
+            file_exists = Path(csv_path).exists()
             
             # Define field order for CSV (include File Hash)
             field_order = ["Vendor", "Invoice #", "Date Due", "Total", "File Hash"]
@@ -451,7 +458,8 @@ class PurchaseOrderJSONAction(DocumentAction):
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
         """Generate individual JSON file using file key (transform pattern)"""
-        return f"{doc_type}_{key}.json"
+        output_dir = self.ensure_output_directory()
+        return str(output_dir / f"{doc_type}_{key}.json")
     
     def validate_data(self, data: Dict[str, Any]) -> tuple[bool, str]:
         """Validate Purchase Order data has all required fields"""
@@ -479,7 +487,7 @@ class PurchaseOrderJSONAction(DocumentAction):
             "financial": {
                 "total_amount": data["Total Amount"]
             },
-            "source_file": os.path.basename(file_path),
+            "source_file": Path(file_path).name,
             "processed_timestamp": datetime.now().isoformat()
         }
         
@@ -508,7 +516,8 @@ class ReceiptJSONAction(DocumentAction):
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
         """Generate individual JSON file using hash (transform pattern)"""
-        return f"{doc_type}_{key}.json"
+        output_dir = self.ensure_output_directory()
+        return str(output_dir / f"{doc_type}_{key}.json")
     
     def validate_data(self, data: Dict[str, Any]) -> tuple[bool, str]:
         """Validate Receipt data has all required fields"""
@@ -529,7 +538,7 @@ class ReceiptJSONAction(DocumentAction):
             "date": data["Date"],
             "amount": data["Amount"],
             "payment_method": data["Payment Method"],
-            "source_file": os.path.basename(file_path),
+            "source_file": Path(file_path).name,
             "file_hash": file_key,
             "processed_timestamp": datetime.now().isoformat()
         }
@@ -560,7 +569,8 @@ class BankStatementCSVAction(DocumentAction):
     
     def generate_filename(self, doc_type: str, data: Dict[str, Any], file_path: str, key: str) -> str:
         """Generate compiled CSV file (compile pattern)"""
-        return f"{doc_type}_transactions.csv"
+        output_dir = self.ensure_output_directory()
+        return str(output_dir / f"{doc_type}_transactions.csv")
     
     def check_file_duplicates(self, file_key: str, output_path: str) -> bool:
         """Check if file hash already exists in CSV (primary deduplication)"""
@@ -574,34 +584,6 @@ class BankStatementCSVAction(DocumentAction):
     def validate_data(self, data: Dict[str, Any]) -> tuple[bool, str]:
         """Validate Bank Statement data has all required fields"""
         return self.validator.validate(data)
-    
-    def _is_file_duplicate(self, file_key: str, csv_path: str) -> bool:
-        """Check if file hash already exists in CSV file"""
-        if not os.path.exists(csv_path):
-            return False  # No file means no duplicates
-        
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
-                header = next(reader, None)  # Skip header row
-                if not header:
-                    return False  # Empty file
-                
-                # Find the File Hash column index
-                try:
-                    hash_index = header.index("File Hash")
-                except ValueError:
-                    return False  # File Hash column doesn't exist
-                
-                # Check each row for the file hash
-                for row in reader:
-                    if len(row) > hash_index and row[hash_index] == file_key:
-                        return True  # Found duplicate
-                        
-            return False  # No duplicate found
-            
-        except Exception:
-            return False  # Error reading file, assume no duplicate
     
     def _is_duplicate(self, data: Dict[str, Any], file_path: str, csv_path: str) -> bool:
         """Legacy method for backward compatibility"""
@@ -619,7 +601,7 @@ class BankStatementCSVAction(DocumentAction):
         
         try:
             # Check if file exists to determine if we need headers
-            file_exists = os.path.exists(csv_path)
+            file_exists = Path(csv_path).exists()
             
             # Define field order for CSV (include File Hash)
             field_order = ["Date", "Amount", "Description", "File Hash"]
@@ -975,7 +957,7 @@ class CSVReader(FileReader):
             # Add header if available
             if rows:
                 header = rows[0]
-                text_lines.append("CSV Data with columns: " + ", ".join(header))
+                text_lines.append(f"CSV Data with columns: {', '.join(header)}")
                 text_lines.append("")  # Empty line for separation
                 
                 # Add data rows with structure
@@ -1288,7 +1270,7 @@ def read_file(file_path: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description='Ingest documents')
     parser.add_argument('files', nargs='+', help='Files to ingest')
-    # TODO: Make --type optional with auto-detection of document type by default
+    # TODO: Make --type optional with auto-detection of document type by default (powered by LLM)
     parser.add_argument('--type', dest='doc_type', required=True,
                         choices=ProcessorRegistry.get_available_types(),
                         help='Document type')
@@ -1341,9 +1323,8 @@ def main():
                 failed += 1
             else:
                 # Execute post-extraction action (single action per document type)
-                # NOTE: Current design implements one action per processor for assignment requirements.
-                # Architecture supports extending to action pipelines for production (e.g., csv + webform + email chain)
-                # by modifying processors to hold action lists instead of single action instances.
+                # NOTE: Current design is one action per processor.
+                # Architecture supports chaining actions
                 # TODO: Add --action CLI argument to support action selection (e.g., --action csv, --action json)
                 if hasattr(processor, 'execute_action'):
                     action_success, action_msg = processor.execute_action(extracted_data, file_path)
